@@ -1,0 +1,708 @@
+# This workflow will build and push a node.js application to an Azure Web App when a commit is pushed to your default branch.
+#
+# This workflow assumes you have already created the target Azure App Service web app.
+# For instructions see https://docs.microsoft.com/en-us/azure/app-service/quickstart-nodejs?tabs=linux&pivots=development-environment-cli
+#
+# To configure this workflow:
+#
+# 1. Download the Publish Profile for your Azure Web App. You can download this file from the Overview page of your Web App in the Azure Portal.
+#    For more information: https://docs.microsoft.com/en-us/azure/app-service/deploy-github-actions?tabs=applevel#generate-deployment-credentials
+#
+# 2. Create a secret in your repository named AZURE_WEBAPP_PUBLISH_PROFILE, paste the publish profile contents as the value of the secret.
+#    For instructions on obtaining the publish profile see: https://docs.microsoft.com/azure/app-service/deploy-github-actions#configure-the-github-secret
+#
+# 3. Change the value for the AZURE_WEBAPP_NAME. Optionally, change the AZURE_WEBAPP_PACKAGE_PATH and NODE_VERSION environment variables below.
+#
+# For more information on GitHub Actions for Azure: https://github.com/Azure/Actions
+# For more information on the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
+# For more samples to get started with GitHub Action workflows to deploy to Azure: https://github.com/Azure/actions-workflow-samples
+
+<!doctype html>
+<html lang="id" class="h-full">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Account Marketplace</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lucide@0.263.0/dist/umd/lucide.min.js"></script>
+  <script src="/_sdk/element_sdk.js"></script>
+  <script src="/_sdk/data_sdk.js"></script>
+  <!-- Google Identity Services -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet">
+  <style>
+    * { font-family: 'Outfit', sans-serif; }
+    .tab-active { color: #6366f1; border-color: #6366f1; }
+    .toast { animation: slideUp 0.3s ease-out; }
+    @keyframes slideUp { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes float { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-8px); } }
+    @keyframes pulse-glow { 0%, 100% { box-shadow: 0 0 20px rgba(99, 102, 241, 0.3); } 50% { box-shadow: 0 0 30px rgba(99, 102, 241, 0.6); } }
+    @keyframes shimmer { 0% { background-position: -1000px 0; } 100% { background-position: 1000px 0; } }
+    @keyframes slideInRight { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
+    
+    .card-enter { animation: slideInRight 0.4s ease-out; }
+    .float { animation: float 3s ease-in-out infinite; }
+    .pulse-glow { animation: pulse-glow 2s ease-in-out infinite; }
+    .gradient-bg { background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%); }
+    .glass { background: rgba(255,255,255,0.05); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); }
+    .gradient-card { background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%); border: 1px solid rgba(99, 102, 241, 0.2); }
+    .hover-lift { transition: all 0.3s cubic-bezier(0.23, 1, 0.320, 1); }
+    .hover-lift:hover { transform: translateY(-6px); box-shadow: 0 20px 40px rgba(99, 102, 241, 0.2); }
+    
+    input:focus, select:focus, textarea:focus { outline: none; box-shadow: 0 0 0 2px #6366f1; }
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-thumb { background: #4338ca; border-radius: 4px; }
+    
+    .icon-badge { width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; font-size: 24px; background: rgba(99, 102, 241, 0.15); border-radius: 12px; }
+    .price-badge { background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  </style>
+ </head>
+ <body class="h-full">
+  <div id="app" class="h-full w-full overflow-auto bg-gray-950 text-white flex flex-col">
+   <!-- Login Screen -->
+   <div id="login-screen" class="h-full w-full gradient-bg flex items-center justify-center p-4">
+    <div class="glass rounded-2xl p-8 w-full max-w-sm text-center space-y-6">
+     <div class="w-16 h-16 mx-auto bg-indigo-500 rounded-2xl flex items-center justify-center">
+      <i data-lucide="store" class="w-8 h-8"></i>
+     </div>
+     <h1 id="login-title" class="text-2xl font-bold">everyone's shop</h1>
+     <p id="login-tagline" class="text-indigo-200 text-sm">Jual Beli &amp; Sewa Akun Terpercaya</p>
+     <div class="space-y-3">
+      <input id="login-username" type="text" placeholder="Username" class="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-indigo-300 text-sm">
+      <input id="login-password" type="password" placeholder="Sandi" class="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-indigo-300 text-sm">
+      <button onclick="handleLogin()" class="w-full py-3 bg-indigo-500 hover:bg-indigo-600 rounded-xl font-semibold transition-all">Masuk / Daftar</button>
+      <div class="relative my-4">
+        <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-white/20"></div></div>
+        <div class="relative flex justify-center text-xs"><span class="bg-transparent px-2 text-indigo-300">atau</span></div>
+      </div>
+      <div id="google-login-btn" class="flex justify-center"></div>
+     </div>
+     <p class="text-xs text-indigo-300">Demo: Isi username & sandi (bebas) atau pakai Google</p>
+    </div>
+   </div>
+
+   <!-- Main App -->
+   <div id="main-app" class="h-full w-full flex flex-col hidden">
+    <!-- Top Bar -->
+    <header class="sticky top-0 z-30 bg-gray-950/95 backdrop-blur-md border-b border-gray-800 px-4 py-3">
+     <div class="flex items-center gap-3">
+      <div class="flex-1 relative">
+       <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"></i>
+       <input id="search-input" type="text" placeholder="Cari akun..." class="w-full pl-10 pr-4 py-2 rounded-xl bg-gray-800 border border-gray-700 text-sm text-white placeholder-gray-500" oninput="filterProducts()">
+      </div>
+      <button onclick="toggleFilter()" class="p-2 rounded-xl bg-gray-800 border border-gray-700 hover:border-indigo-500 transition-all"> <i data-lucide="sliders-horizontal" class="w-4 h-4"></i> </button>
+     </div>
+     <div id="filter-panel" class="hidden mt-3 p-3 rounded-xl bg-gray-800 border border-gray-700 space-y-3">
+      <div class="flex gap-2">
+       <select id="filter-category" class="flex-1 px-3 py-2 rounded-lg bg-gray-700 border border-gray-600 text-sm" onchange="filterProducts()">
+        <option value="">Semua Kategori</option>
+        <option value="game">Game</option>
+        <option value="streaming">Streaming</option>
+        <option value="social">Social Media</option>
+        <option value="productivity">Productivity</option>
+        <option value="other">Lainnya</option>
+       </select>
+       <select id="filter-price" class="flex-1 px-3 py-2 rounded-lg bg-gray-700 border border-gray-600 text-sm" onchange="filterProducts()">
+        <option value="">Semua Harga</option>
+        <option value="0-50000">&lt; Rp50.000</option>
+        <option value="50000-100000">Rp50-100rb</option>
+        <option value="100000-500000">Rp100-500rb</option>
+        <option value="500000-99999999">&gt; Rp500.000</option>
+       </select>
+      </div>
+      <div class="flex gap-2 flex-wrap">
+       <button onclick="sortBy('popular')" class="px-3 py-1 rounded-lg bg-indigo-500/20 border border-indigo-500/50 text-indigo-300 text-xs hover:bg-indigo-500/30">🔥 Populer</button>
+       <button onclick="sortBy('cheapest')" class="px-3 py-1 rounded-lg bg-gray-700 border border-gray-600 text-gray-300 text-xs hover:bg-gray-600">💰 Termurah</button>
+       <button onclick="sortBy('newest')" class="px-3 py-1 rounded-lg bg-gray-700 border border-gray-600 text-gray-300 text-xs hover:bg-gray-600">🆕 Terbaru</button>
+      </div>
+     </div>
+    </header>
+
+    <main class="flex-1 overflow-auto">
+     <!-- Home Tab -->
+     <div id="tab-home" class="p-4 space-y-4">
+      <div class="flex items-center justify-between">
+       <h2 class="font-bold text-lg">Akun Tersedia</h2>
+       <span id="product-count" class="text-xs text-gray-400">0 akun</span>
+      </div>
+      <div id="product-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+     </div>
+
+     <!-- Sell Tab -->
+     <div id="tab-sell" class="p-4 space-y-4 hidden">
+      <h2 class="font-bold text-lg">Jual Akun</h2>
+      <div class="space-y-3 bg-gray-900 rounded-2xl p-4 border border-gray-800">
+       <div>
+        <label class="text-sm text-gray-400 mb-1 block" for="sell-name">Nama Akun *</label>
+        <input id="sell-name" type="text" placeholder="cth: Akun ML Sultan" class="w-full px-4 py-2.5 rounded-xl bg-gray-800 border border-gray-700 text-sm">
+       </div>
+       <div>
+        <label class="text-sm text-gray-400 mb-1 block" for="sell-desc">Deskripsi *</label>
+        <textarea id="sell-desc" placeholder="Jelaskan spesifikasi akun..." rows="3" class="w-full px-4 py-2.5 rounded-xl bg-gray-800 border border-gray-700 text-sm resize-none"></textarea>
+       </div>
+       <div>
+        <label class="text-sm text-gray-400 mb-1 block" for="sell-category">Kategori *</label>
+        <select id="sell-category" class="w-full px-4 py-2.5 rounded-xl bg-gray-800 border border-gray-700 text-sm">
+         <option value="game">Game</option>
+         <option value="streaming">Streaming</option>
+         <option value="social">Social Media</option>
+         <option value="productivity">Productivity</option>
+         <option value="other">Lainnya</option>
+        </select>
+       </div>
+       <div>
+        <label class="text-sm text-gray-400 mb-1 block" for="sell-specs">Spesifikasi *</label>
+        <input id="sell-specs" type="text" placeholder="cth: Level 80, Skin 50+, Rank Mythic" class="w-full px-4 py-2.5 rounded-xl bg-gray-800 border border-gray-700 text-sm">
+       </div>
+       <div class="grid grid-cols-2 gap-3">
+        <div>
+         <label class="text-sm text-gray-400 mb-1 block" for="sell-price">Harga Jual (Rp) *</label>
+         <input id="sell-price" type="number" placeholder="100000" class="w-full px-4 py-2.5 rounded-xl bg-gray-800 border border-gray-700 text-sm">
+        </div>
+        <div>
+         <label class="text-sm text-gray-400 mb-1 block" for="sell-rental">Harga Sewa/hari</label>
+         <input id="sell-rental" type="number" placeholder="Opsional" class="w-full px-4 py-2.5 rounded-xl bg-gray-800 border border-gray-700 text-sm">
+        </div>
+       </div>
+       <div>
+        <label class="text-sm text-gray-400 mb-1 block">Foto Akun *</label>
+        <div class="relative border-2 border-dashed border-gray-700 rounded-xl p-4 text-center hover:border-indigo-500 transition-all cursor-pointer" onclick="document.getElementById('sell-photo').click()">
+         <div id="photo-preview" class="hidden">
+          <img id="preview-img" src="" alt="Preview" class="w-full h-40 object-cover rounded-lg">
+          <button type="button" onclick="clearPhoto(event)" class="mt-2 text-xs text-red-400 hover:text-red-300">Ubah Foto</button>
+         </div>
+         <div id="photo-placeholder">
+          <i data-lucide="image" class="w-8 h-8 mx-auto mb-2 text-gray-500"></i>
+          <p class="text-sm text-gray-400">Klik untuk upload foto</p>
+          <p class="text-xs text-gray-500 mt-1">JPG, PNG (Max 2MB)</p>
+         </div>
+         <input id="sell-photo" type="file" accept="image/*" class="hidden" onchange="handlePhotoUpload(event)">
+        </div>
+       </div>
+       <button id="sell-btn" onclick="submitProduct()" class="w-full py-3 bg-indigo-500 hover:bg-indigo-600 rounded-xl font-semibold transition-all flex items-center justify-center gap-2">
+        <i data-lucide="upload" class="w-4 h-4"></i> Pasang Iklan
+       </button>
+      </div>
+     </div>
+
+     <!-- Wallet Tab -->
+     <div id="tab-wallet" class="p-4 space-y-4 hidden">
+      <h2 class="font-bold text-lg">Saldo Saya</h2>
+      <div class="bg-gradient-to-br from-indigo-600 to-purple-700 rounded-2xl p-5 space-y-2">
+       <p class="text-indigo-200 text-sm">Total Saldo</p>
+       <p id="balance-display" class="text-3xl font-bold">Rp 0</p>
+      </div>
+      <div class="bg-gray-900 rounded-2xl p-4 border border-gray-800 space-y-3">
+       <label class="text-sm text-gray-400 block" for="topup-amount">Isi Saldo (Demo)</label>
+       <input id="topup-amount" type="number" placeholder="Jumlah top up" class="w-full px-4 py-2.5 rounded-xl bg-gray-800 border border-gray-700 text-sm">
+       <button onclick="topUp()" class="w-full py-3 bg-emerald-500 hover:bg-emerald-600 rounded-xl font-semibold transition-all">+ Isi Saldo</button>
+      </div>
+     </div>
+
+     <!-- History Tab -->
+     <div id="tab-history" class="p-4 space-y-4 hidden">
+      <h2 class="font-bold text-lg">Riwayat Pembelian</h2>
+      <div id="history-list" class="space-y-3"></div>
+     </div>
+
+     <!-- Profile Tab -->
+     <div id="tab-profile" class="p-4 space-y-4 hidden">
+      <h2 class="font-bold text-lg">Profil</h2>
+      <div class="bg-gray-900 rounded-2xl p-5 border border-gray-800 flex items-center gap-4">
+       <div class="w-14 h-14 rounded-full bg-indigo-500 flex items-center justify-center text-xl font-bold relative">
+         <span id="profile-avatar-fallback">?</span>
+         <img id="profile-avatar-img" class="hidden w-full h-full rounded-full object-cover">
+       </div>
+       <div class="flex-1">
+        <input id="profile-name-input" type="text" class="bg-transparent font-semibold text-white border-b border-gray-600 focus:border-indigo-400 outline-none w-full mb-1">
+        <p class="text-sm text-gray-400">@<span id="profile-username"></span></p>
+       </div>
+       <button onclick="saveProfileName()" class="text-xs bg-indigo-500/20 px-3 py-1 rounded-lg">Simpan</button>
+      </div>
+      <div class="bg-gray-900 rounded-2xl p-4 border border-gray-800">
+        <label class="text-sm text-gray-400 block mb-2">Foto Profil</label>
+        <div class="flex items-center gap-3">
+          <div class="w-16 h-16 rounded-full bg-gray-700 overflow-hidden relative cursor-pointer" onclick="document.getElementById('profile-photo-input').click()">
+            <img id="profile-preview-img" src="" class="w-full h-full object-cover hidden">
+            <div id="profile-placeholder" class="w-full h-full flex items-center justify-center text-gray-400"><i data-lucide="camera" class="w-6 h-6"></i></div>
+          </div>
+          <input id="profile-photo-input" type="file" accept="image/*" class="hidden" onchange="handleProfilePhotoUpload(event)">
+          <p class="text-xs text-gray-400">Klik untuk ganti foto</p>
+        </div>
+      </div>
+      <button onclick="handleLogout()" class="w-full py-3 bg-red-500/20 border border-red-500/50 text-red-400 rounded-xl font-semibold hover:bg-red-500/30 transition-all">Keluar</button>
+     </div>
+    </main>
+
+    <!-- Bottom Navigation -->
+    <nav class="sticky bottom-0 z-30 bg-gray-900/95 backdrop-blur-md border-t border-gray-800 px-2 py-2">
+     <div class="flex justify-around">
+      <button onclick="switchTab('home')" class="flex flex-col items-center gap-0.5 px-3 py-1 tab-btn tab-active" data-tab="home"> <i data-lucide="home" class="w-5 h-5"></i> <span class="text-[10px]">Beranda</span> </button>
+      <button onclick="switchTab('sell')" class="flex flex-col items-center gap-0.5 px-3 py-1 tab-btn text-gray-500" data-tab="sell"> <i data-lucide="plus-circle" class="w-5 h-5"></i> <span class="text-[10px]">Jual</span> </button>
+      <button onclick="switchTab('wallet')" class="flex flex-col items-center gap-0.5 px-3 py-1 tab-btn text-gray-500" data-tab="wallet"> <i data-lucide="wallet" class="w-5 h-5"></i> <span class="text-[10px]">Saldo</span> </button>
+      <button onclick="switchTab('history')" class="flex flex-col items-center gap-0.5 px-3 py-1 tab-btn text-gray-500" data-tab="history"> <i data-lucide="clock" class="w-5 h-5"></i> <span class="text-[10px]">Riwayat</span> </button>
+      <button onclick="switchTab('profile')" class="flex flex-col items-center gap-0.5 px-3 py-1 tab-btn text-gray-500" data-tab="profile"> <i data-lucide="user" class="w-5 h-5"></i> <span class="text-[10px]">Profil</span> </button>
+     </div>
+    </nav>
+   </div>
+
+   <!-- Toast -->
+   <div id="toast" class="fixed bottom-20 left-4 right-4 z-50 hidden">
+    <div class="bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-sm text-center toast shadow-xl"></div>
+   </div>
+
+   <!-- Buy Confirmation Modal -->
+   <div id="buy-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-black/70">
+    <div class="bg-gray-900 rounded-2xl p-6 w-full max-w-sm border border-gray-700 space-y-4">
+     <h3 class="font-bold text-lg">Konfirmasi Pembelian</h3>
+     <div id="buy-modal-content"></div>
+     <div class="flex gap-3">
+      <button onclick="closeBuyModal()" class="flex-1 py-2.5 bg-gray-700 rounded-xl font-medium hover:bg-gray-600">Batal</button>
+      <button id="confirm-buy-btn" onclick="confirmPurchase()" class="flex-1 py-2.5 bg-indigo-500 rounded-xl font-medium hover:bg-indigo-600">Beli</button>
+      <button id="confirm-rent-btn" onclick="confirmRental()" class="flex-1 py-2.5 bg-purple-500 rounded-xl font-medium hover:bg-purple-600 hidden">Sewa</button>
+     </div>
+    </div>
+   </div>
+  </div>
+
+  <script>
+  // ---------------------------- State ----------------------------
+  let currentUser = null;
+  let balance = 0;
+  let products = [];
+  let purchaseHistory = [];
+  let selectedProduct = null;
+  let buyMode = 'buy';
+  let currentSort = 'newest';
+  let currentPhotoData = null;
+  let profileData = {};
+
+  const defaultConfig = {
+    site_title: "everyone's shop",
+    tagline: 'Jual Beli & Sewa Akun Terpercaya',
+    background_color: '#030712',
+    surface_color: '#111827',
+    text_color: '#ffffff',
+    primary_color: '#6366f1',
+    secondary_color: '#10b981'
+  };
+
+  // ---------------------------- SDK Init ----------------------------
+  window.elementSdk.init({
+    defaultConfig,
+    onConfigChange: async (config) => {
+      document.getElementById('login-title').textContent = config.site_title || defaultConfig.site_title;
+      document.getElementById('login-tagline').textContent = config.tagline || defaultConfig.tagline;
+      document.body.style.color = config.text_color || defaultConfig.text_color;
+    },
+    mapToCapabilities: (config) => ({
+      recolorables: [
+        { get: () => config.background_color || defaultConfig.background_color, set: (v) => { config.background_color = v; window.elementSdk.setConfig({ background_color: v }); }},
+        { get: () => config.surface_color || defaultConfig.surface_color, set: (v) => { config.surface_color = v; window.elementSdk.setConfig({ surface_color: v }); }},
+        { get: () => config.text_color || defaultConfig.text_color, set: (v) => { config.text_color = v; window.elementSdk.setConfig({ text_color: v }); }},
+        { get: () => config.primary_color || defaultConfig.primary_color, set: (v) => { config.primary_color = v; window.elementSdk.setConfig({ primary_color: v }); }},
+        { get: () => config.secondary_color || defaultConfig.secondary_color, set: (v) => { config.secondary_color = v; window.elementSdk.setConfig({ secondary_color: v }); }}
+      ],
+      borderables: [],
+      fontEditable: { get: () => config.font_family || 'Outfit', set: (v) => { config.font_family = v; window.elementSdk.setConfig({ font_family: v }); }},
+      fontSizeable: undefined
+    }),
+    mapToEditPanelValues: (config) => new Map([
+      ['site_title', config.site_title || defaultConfig.site_title],
+      ['tagline', config.tagline || defaultConfig.tagline]
+    ])
+  });
+
+  const dataHandler = { onDataChanged(data) { products = data; renderProducts(); } };
+  (async () => { await window.dataSdk.init(dataHandler); })();
+
+  // ---------------------------- Auth (Manual) ----------------------------
+  function handleLogin() {
+    const username = document.getElementById('login-username').value.trim();
+    const password = document.getElementById('login-password').value.trim();
+    if (!username || !password) { showToast('Isi username dan sandi!'); return; }
+    
+    currentUser = username;
+    loadUserData();
+    document.getElementById('login-screen').classList.add('hidden');
+    document.getElementById('main-app').classList.remove('hidden');
+    updateProfileDisplay();
+    updateBalance();
+    renderHistory();
+    lucide.createIcons();
+  }
+
+  function loadUserData() {
+    balance = parseInt(localStorage.getItem('balance_' + currentUser) || '0');
+    purchaseHistory = JSON.parse(localStorage.getItem('history_' + currentUser) || '[]');
+    profileData = JSON.parse(localStorage.getItem('profile_' + currentUser) || '{}');
+    if (!profileData.name) profileData.name = currentUser;
+    if (!profileData.photo) profileData.photo = null;
+    localStorage.setItem('profile_' + currentUser, JSON.stringify(profileData));
+  }
+
+  function handleLogout() {
+    currentUser = null;
+    profileData = {};
+    document.getElementById('main-app').classList.add('hidden');
+    document.getElementById('login-screen').classList.remove('hidden');
+    document.getElementById('login-username').value = '';
+    document.getElementById('login-password').value = '';
+  }
+
+  // ---------------------------- Login dengan Google ----------------------------
+  function initGoogleLogin() {
+    if (typeof google === 'undefined') return;
+    google.accounts.id.initialize({
+      client_id: 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com', // Ganti dengan Client ID asli
+      callback: handleGoogleCredential
+    });
+    google.accounts.id.renderButton(
+      document.getElementById('google-login-btn'),
+      { theme: 'outline', size: 'large', width: '100%', text: 'continue_with', shape: 'pill' }
+    );
+  }
+
+  async function handleGoogleCredential(response) {
+    try {
+      const payload = parseJwt(response.credential);
+      const email = payload.email;
+      const name = payload.name;
+      const photo = payload.picture;
+      
+      currentUser = email; // gunakan email sebagai username unik
+      loadUserData();
+      // update profile dengan data dari Google
+      profileData.name = name;
+      profileData.photo = photo;
+      localStorage.setItem('profile_' + currentUser, JSON.stringify(profileData));
+      
+      // pastikan saldo dan history tersedia
+      if (isNaN(parseInt(localStorage.getItem('balance_' + currentUser)))) {
+        localStorage.setItem('balance_' + currentUser, '0');
+      }
+      if (!localStorage.getItem('history_' + currentUser)) {
+        localStorage.setItem('history_' + currentUser, '[]');
+      }
+      loadUserData();
+      
+      document.getElementById('login-screen').classList.add('hidden');
+      document.getElementById('main-app').classList.remove('hidden');
+      updateProfileDisplay();
+      updateBalance();
+      renderHistory();
+      lucide.createIcons();
+      showToast('Login dengan Google berhasil!');
+    } catch (err) {
+      showToast('Gagal login dengan Google');
+    }
+  }
+
+  function parseJwt(token) {
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
+    return JSON.parse(jsonPayload);
+  }
+
+  // Panggil init setelah script Google siap
+  window.onload = function() { if (typeof google !== 'undefined') initGoogleLogin(); };
+
+  // ---------------------------- Profile ----------------------------
+  function updateProfileDisplay() {
+    const name = profileData.name || currentUser;
+    const photo = profileData.photo;
+    document.getElementById('profile-username').textContent = currentUser;
+    document.getElementById('profile-name-input').value = name;
+    const fallbackSpan = document.getElementById('profile-avatar-fallback');
+    const avatarImg = document.getElementById('profile-avatar-img');
+    const previewImg = document.getElementById('profile-preview-img');
+    const placeholderDiv = document.getElementById('profile-placeholder');
+    if (photo) {
+      fallbackSpan.classList.add('hidden');
+      avatarImg.classList.remove('hidden');
+      avatarImg.src = photo;
+      previewImg.src = photo;
+      previewImg.classList.remove('hidden');
+      placeholderDiv.classList.add('hidden');
+    } else {
+      fallbackSpan.classList.remove('hidden');
+      avatarImg.classList.add('hidden');
+      fallbackSpan.textContent = name[0].toUpperCase();
+      previewImg.classList.add('hidden');
+      placeholderDiv.classList.remove('hidden');
+    }
+  }
+
+  function handleProfilePhotoUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { showToast('❌ Maksimal 5MB'); return; }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      profileData.photo = e.target.result;
+      localStorage.setItem('profile_' + currentUser, JSON.stringify(profileData));
+      updateProfileDisplay();
+      showToast('✅ Foto profil berhasil diubah');
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function saveProfileName() {
+    const newName = document.getElementById('profile-name-input').value.trim();
+    if (!newName) { showToast('Nama tidak boleh kosong'); return; }
+    profileData.name = newName;
+    localStorage.setItem('profile_' + currentUser, JSON.stringify(profileData));
+    updateProfileDisplay();
+    showToast('✅ Nama disimpan');
+  }
+
+  // ---------------------------- Produk & Share ----------------------------
+  async function submitProduct() {
+    const name = document.getElementById('sell-name').value.trim();
+    const desc = document.getElementById('sell-desc').value.trim();
+    const cat = document.getElementById('sell-category').value;
+    const specs = document.getElementById('sell-specs').value.trim();
+    const price = parseInt(document.getElementById('sell-price').value);
+    const rental = parseInt(document.getElementById('sell-rental').value) || 0;
+
+    if (!name || !desc || !specs || !price) { showToast('Isi semua kolom wajib!'); return; }
+    if (!currentPhotoData) { showToast('⚠️ Tambahkan foto akun terlebih dahulu!'); return; }
+
+    const btn = document.getElementById('sell-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="animate-pulse">Memproses...</span>';
+
+    try {
+      const result = await window.dataSdk.create({
+        type: 'product',
+        account_name: name,
+        description: desc,
+        price: price,
+        category: cat,
+        specs: specs,
+        seller: currentUser,
+        created_at: new Date().toISOString(),
+        rental_available: rental > 0,
+        rental_price: rental,
+        photo: currentPhotoData
+      });
+
+      if (result.isOk) {
+        showToast('✅ Akun berhasil dipasang!');
+        document.getElementById('sell-name').value = '';
+        document.getElementById('sell-desc').value = '';
+        document.getElementById('sell-specs').value = '';
+        document.getElementById('sell-price').value = '';
+        document.getElementById('sell-rental').value = '';
+        clearPhoto();
+        switchTab('home');
+      } else {
+        showToast('❌ Gagal menyimpan, coba lagi');
+      }
+    } catch (err) {
+      showToast('❌ Error: ' + err.message);
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '<i data-lucide="upload" class="w-4 h-4"></i> Pasang Iklan';
+      lucide.createIcons();
+    }
+  }
+
+  function handlePhotoUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    if (file.size > 20 * 1024 * 1024) { showToast('❌ Maksimal 20MB'); return; }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      currentPhotoData = e.target.result;
+      document.getElementById('photo-placeholder').classList.add('hidden');
+      document.getElementById('preview-img').src = currentPhotoData;
+      document.getElementById('photo-preview').classList.remove('hidden');
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function clearPhoto(e) {
+    if (e) e.stopPropagation();
+    currentPhotoData = null;
+    document.getElementById('sell-photo').value = '';
+    document.getElementById('photo-placeholder').classList.remove('hidden');
+    document.getElementById('photo-preview').classList.add('hidden');
+  }
+
+  function shareProduct(product) {
+    const shareData = {
+      title: product.account_name,
+      text: `${product.description}\nHarga: Rp ${product.price.toLocaleString('id')}\nSpesifikasi: ${product.specs}`,
+      url: window.location.href
+    };
+    if (navigator.share) {
+      navigator.share(shareData).catch(() => copyToClipboard(shareData.text));
+    } else {
+      copyToClipboard(`${shareData.title}\n${shareData.text}`);
+    }
+  }
+
+  function copyToClipboard(text) {
+    navigator.clipboard.writeText(text);
+    showToast('📋 Detail produk disalin ke clipboard');
+  }
+
+  function renderProducts() {
+    const container = document.getElementById('product-list');
+    const search = document.getElementById('search-input').value.toLowerCase();
+    const category = document.getElementById('filter-category').value;
+    const priceRange = document.getElementById('filter-price').value;
+
+    let filtered = products.filter(p => {
+      if (search && !p.account_name.toLowerCase().includes(search) && !p.description.toLowerCase().includes(search) && !p.specs.toLowerCase().includes(search)) return false;
+      if (category && p.category !== category) return false;
+      if (priceRange) {
+        const [min, max] = priceRange.split('-').map(Number);
+        if (p.price < min || p.price > max) return false;
+      }
+      return true;
+    });
+
+    if (currentSort === 'cheapest') filtered.sort((a, b) => a.price - b.price);
+    else if (currentSort === 'newest') filtered.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+    document.getElementById('product-count').textContent = filtered.length + ' akun';
+
+    if (filtered.length === 0) {
+      container.innerHTML = `<div class="col-span-full text-center py-12 text-gray-500"><i data-lucide="package" class="w-12 h-12 mx-auto mb-3 opacity-50"></i><p>Tidak ada akun ditemukan</p></div>`;
+      lucide.createIcons();
+      return;
+    }
+
+    container.innerHTML = filtered.map(p => {
+      const catEmoji = { game: '🎮', streaming: '📺', social: '📱', productivity: '💼', other: '📦' }[p.category] || '📦';
+      const photoDisplay = p.photo ? `<img src="${p.photo}" alt="${p.account_name}" class="w-full h-32 object-cover rounded-lg mb-3">` : '';
+      return `<div class="card-enter gradient-card rounded-xl p-4 space-y-3 relative">
+        <button onclick="event.stopPropagation(); shareProduct(${JSON.stringify(p).replace(/"/g, '&quot;')})" class="absolute top-3 right-3 z-10 bg-gray-800/80 p-1.5 rounded-full hover:bg-indigo-500 transition">
+          <i data-lucide="share-2" class="w-4 h-4"></i>
+        </button>
+        <div onclick="openBuyModal('${p.__backendId}')" class="cursor-pointer">
+          ${photoDisplay}
+          <div class="flex items-start justify-between">
+            <div class="icon-badge">${catEmoji}</div>
+            <div class="flex gap-2">
+              ${p.rental_available ? '<span class="text-[10px] bg-purple-500/40 text-purple-200 px-2.5 py-1 rounded-full font-medium border border-purple-500/50">🔄 Sewa</span>' : ''}
+              <span class="text-[10px] bg-indigo-500/40 text-indigo-200 px-2.5 py-1 rounded-full font-medium border border-indigo-500/50">⭐ ${Math.floor(Math.random() * 3 + 4)}.${Math.floor(Math.random() * 10)}</span>
+            </div>
+          </div>
+          <div class="space-y-1 mt-2">
+            <h3 class="font-bold text-base line-clamp-1">${p.account_name}</h3>
+            <p class="text-xs text-gray-300 line-clamp-2">${p.description}</p>
+          </div>
+          <div class="flex flex-wrap gap-1 mt-2">
+            ${p.specs.split(',').slice(0, 3).map(s => `<span class="text-[10px] bg-white/5 text-gray-300 px-2 py-1 rounded-full">${s.trim()}</span>`).join('')}
+          </div>
+          <div class="flex items-center justify-between pt-2 border-t border-white/10 mt-2">
+            <div>
+              <p class="text-xs text-gray-400">Harga</p>
+              <p class="font-bold price-badge text-lg">Rp ${(p.price / 1000).toFixed(0)}K</p>
+            </div>
+            <div class="text-right">
+              <p class="text-xs text-gray-400">Penjual</p>
+              <p class="text-sm font-semibold text-indigo-300">@${p.seller}</p>
+            </div>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+    lucide.createIcons();
+  }
+
+  // ---------------------------- Helper Fungsi Lain (Filter, Sort, Wallet, History, Buy) ----------------------------
+  function filterProducts() { renderProducts(); }
+  function sortBy(type) { currentSort = type; renderProducts(); }
+  function toggleFilter() { document.getElementById('filter-panel').classList.toggle('hidden'); }
+  function switchTab(tab) {
+    document.querySelectorAll('[id^="tab-"]').forEach(el => el.classList.add('hidden'));
+    document.getElementById('tab-' + tab).classList.remove('hidden');
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.classList.remove('tab-active');
+      btn.classList.add('text-gray-500');
+    });
+    const activeBtn = document.querySelector(`[data-tab="${tab}"]`);
+    activeBtn.classList.add('tab-active');
+    activeBtn.classList.remove('text-gray-500');
+  }
+  function openBuyModal(id) {
+    selectedProduct = products.find(p => p.__backendId === id);
+    if (!selectedProduct) return;
+    document.getElementById('buy-modal-content').innerHTML = `
+      <div class="bg-gray-800 rounded-xl p-3 space-y-1">
+        <p class="font-semibold">${selectedProduct.account_name}</p>
+        <p class="text-xs text-gray-400">${selectedProduct.specs}</p>
+        <p class="font-bold text-indigo-400">Rp ${selectedProduct.price.toLocaleString('id')}</p>
+        ${selectedProduct.rental_available ? `<p class="text-xs text-purple-300">Sewa: Rp ${selectedProduct.rental_price.toLocaleString('id')}/hari</p>` : ''}
+      </div>
+      <p class="text-xs text-gray-400">Saldo Anda: Rp ${balance.toLocaleString('id')}</p>
+    `;
+    document.getElementById('confirm-buy-btn').classList.remove('hidden');
+    document.getElementById('confirm-rent-btn').classList.toggle('hidden', !selectedProduct.rental_available);
+    document.getElementById('buy-modal').classList.remove('hidden');
+    document.getElementById('buy-modal').classList.add('flex');
+  }
+  function closeBuyModal() { document.getElementById('buy-modal').classList.add('hidden'); document.getElementById('buy-modal').classList.remove('flex'); selectedProduct = null; }
+  function confirmPurchase() {
+    if (!selectedProduct || balance < selectedProduct.price) { showToast('❌ Saldo tidak cukup!'); closeBuyModal(); switchTab('wallet'); return; }
+    balance -= selectedProduct.price;
+    saveBalance();
+    purchaseHistory.unshift({ name: selectedProduct.account_name, price: selectedProduct.price, type: 'Beli', date: new Date().toISOString() });
+    localStorage.setItem('history_' + currentUser, JSON.stringify(purchaseHistory));
+    updateBalance();
+    renderHistory();
+    closeBuyModal();
+    showToast('✅ Pembelian berhasil!');
+  }
+  function confirmRental() {
+    if (!selectedProduct || balance < selectedProduct.rental_price) { showToast('❌ Saldo tidak cukup!'); closeBuyModal(); switchTab('wallet'); return; }
+    balance -= selectedProduct.rental_price;
+    saveBalance();
+    purchaseHistory.unshift({ name: selectedProduct.account_name, price: selectedProduct.rental_price, type: 'Sewa (1 hari)', date: new Date().toISOString() });
+    localStorage.setItem('history_' + currentUser, JSON.stringify(purchaseHistory));
+    updateBalance();
+    renderHistory();
+    closeBuyModal();
+    showToast('✅ Sewa berhasil!');
+  }
+  function topUp() {
+    const amount = parseInt(document.getElementById('topup-amount').value);
+    if (!amount || amount <= 0) { showToast('Masukkan jumlah valid!'); return; }
+    balance += amount;
+    saveBalance();
+    updateBalance();
+    document.getElementById('topup-amount').value = '';
+    showToast('✅ Saldo ditambahkan!');
+  }
+  function saveBalance() { localStorage.setItem('balance_' + currentUser, balance.toString()); }
+  function updateBalance() { document.getElementById('balance-display').textContent = 'Rp ' + balance.toLocaleString('id'); }
+  function renderHistory() {
+    const container = document.getElementById('history-list');
+    if (purchaseHistory.length === 0) {
+      container.innerHTML = '<div class="text-center py-12 text-gray-500"><i data-lucide="receipt" class="w-12 h-12 mx-auto mb-3 opacity-50"></i><p>Belum ada riwayat</p></div>';
+      lucide.createIcons();
+      return;
+    }
+    container.innerHTML = purchaseHistory.map(h => `
+      <div class="bg-gray-900 rounded-xl p-3 border border-gray-800 flex items-center justify-between">
+        <div><p class="font-medium text-sm">${h.name}</p><p class="text-xs text-gray-400">${h.type} • ${new Date(h.date).toLocaleDateString('id')}</p></div>
+        <span class="text-sm font-bold text-red-400">-Rp ${h.price.toLocaleString('id')}</span>
+      </div>
+    `).join('');
+  }
+  function showToast(msg) {
+    const toast = document.getElementById('toast');
+    toast.querySelector('div').textContent = msg;
+    toast.classList.remove('hidden');
+    setTimeout(() => toast.classList.add('hidden'), 2500);
+  }
+  lucide.createIcons();
+  </script>
+ </body>
+</html>
